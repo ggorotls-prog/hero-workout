@@ -147,6 +147,11 @@
   .modal a { background: var(--red); color: #fff; }
   .modal button { background: #eee; }
   .modal button.share { background: #fee500; color: #191919; }
+  /* 인증 축하 팝업 */
+  #cheerPop .box { width: 340px; padding: 24px 18px 18px; }
+  #cheerPop .cheer { font-size: 20px; color: #0f4d2c; }
+  #cheerPop .verse { font-size: 16px; margin-top: 14px; }
+  #cheerPop .ok { margin-top: 16px; width: 100%; background: var(--red); color: #fff; padding: 12px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -188,6 +193,13 @@
   </div>
 </div>
 <div id="shotArea"></div>
+
+<div class="modal" id="cheerPop">
+  <div class="box">
+    <div id="cheerBody"></div>
+    <button class="ok" id="cheerOk">확인</button>
+  </div>
+</div>
 
 <div class="modal" id="modal">
   <div class="box">
@@ -427,8 +439,9 @@ function showCheer(w, name, date) {
   let line2 = '', kind = 'go';
   if (m.goal > 0 && cnt >= m.goal) { line2 = cnt === m.goal ? '이번 주 결단 달성 🎉' : '결단 넘어 보너스 운동 🔥'; kind = 'done'; }
   else if (m.goal > 0) { line2 = '이번 주 ' + (m.goal - cnt) + '번 남았어요'; kind = 'left'; }
-  const el = $('msg'); el.className = 'msg';
-  el.innerHTML = '<div class="cheer">' + esc(name) + '님 ' + md(date) + ' 오운완!' + (line2 ? '<br>' + line2 : '') + '</div>' + verseHtml(kind);
+  showMsg('', '');
+  $('cheerBody').innerHTML = '<div class="cheer">' + esc(name) + '님 ' + md(date) + ' 오운완!' + (line2 ? '<br>' + line2 : '') + '</div>' + verseHtml(kind);
+  $('cheerPop').classList.add('show');
 }
 
 $('go').onclick = () => {
@@ -517,6 +530,9 @@ $('share').onclick = () => {
   });
 };
 $('close').onclick = () => $('modal').classList.remove('show');
+// 축하 팝업은 확인 또는 바깥을 누르면 닫힘
+$('cheerOk').onclick = () => $('cheerPop').classList.remove('show');
+$('cheerPop').onclick = ev => { if (ev.target === $('cheerPop')) $('cheerPop').classList.remove('show'); };
 
 $('all').onclick = () => {
   const on = document.body.classList.toggle('showAll');
