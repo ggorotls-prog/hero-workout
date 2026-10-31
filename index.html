@@ -152,6 +152,16 @@
   #cheerPop .cheer { font-size: 20px; color: #0f4d2c; }
   #cheerPop .verse { font-size: 16px; margin-top: 14px; }
   #cheerPop .ok { margin-top: 16px; width: 100%; background: var(--red); color: #fff; padding: 12px; font-size: 16px; }
+  #cheerPop .ok.later { background: #eee; color: var(--sub); }
+  /* 마지막 주: 다음 달 도전/쉼 묻기 */
+  #cheerPop .ask { margin-top: 16px; border-top: 1px dashed #ddd; padding-top: 14px; font-size: 17px; font-weight: 700; line-height: 1.5; }
+  #cheerPop .ask .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  #cheerPop .ask button { padding: 14px 8px; font-size: 16px; background: #eef4fb; color: #18406b; }
+  #cheerPop .ask button[data-next=go] { background: var(--done); color: #4a2300; }
+  #nextBox { margin-top: 14px; border-top: 1px dashed #ddd; padding-top: 12px; font-size: 15px; line-height: 1.6; }
+  #nextBox h3 { font-size: 15px; margin: 0 0 8px; }
+  #nextBox .row { padding: 8px 10px; border-radius: 10px; margin-bottom: 6px; background: #f7f7f7; }
+  #nextBox .row.go { background: #fdeee0; } #nextBox .row.rest { background: #eef4fb; }
 </style>
 </head>
 <body>
@@ -186,6 +196,7 @@
   <div class="card adminCard">
     <h2>📋 전체 표</h2>
     <div class="scroll"><div id="board"></div></div>
+    <div id="nextBox"></div>
     <div class="bar" style="margin-top:10px;margin-bottom:0">
       <span class="foot" id="stamp"></span>
       <button class="save" id="save">📷 표 이미지 만들기</button>
@@ -214,7 +225,7 @@
 </div>
 
 <script>
-// 데이터는 슈파베이스 「룡룡룡」의 hero_* 표. 표는 막혀 있고 함수 3개(hero_data·hero_submit·hero_set_goal)로만 읽고 쓴다.
+// 데이터는 슈파베이스 「룡룡룡」의 hero_* 표. 표는 막혀 있고 함수 4개(hero_data·hero_submit·hero_set_goal·hero_set_next)로만 읽고 쓴다.
 // 아래 키는 공개용(publishable) 키라 화면에 있어도 된다.
 const SB_URL = 'https://trlnatdkebjvgiqneulv.supabase.co';
 const SB_KEY = 'sb_publishable_BqE1VCDg50oi9zCflCjMuw_wYF55CTj';
@@ -277,8 +288,17 @@ function getWeek(weekStart) {
       hist[m.name] = weeks.map(wk => ({ wk, cnt: Object.keys(mine[wk] || {}).length, goal: goalFor(m, wk) }));
     });
     const members = d.members.map(m => ({ name: m.name, goal: goalFor(m, start) }));
-    return { today: d.today, weekStart: start, days, members, done, round, hist };
+    return { today: d.today, weekStart: start, days, members, done, round, hist, next: nextInfo(d) };
   });
+}
+
+// 오늘 기수의 마지막 주부터 다음 달 도전/쉼을 묻는다. 새 기수를 넣기 전까지는 계속 묻고 보여 준다.
+function nextInfo(d) {
+  const r = d.rounds.filter(x => x.start <= d.today).pop();
+  if (!r || d.today < sundayOf(r.end)) return null;
+  const n = parseInt(r.name, 10), choices = {};
+  (d.nextChoices || []).forEach(c => { if (c.round === r.name) choices[c.name] = c.choice; });
+  return { round: r.name, label: n ? (n % 12 + 1) + '월' : '다음 달', choices };
 }
 
 function md(ymd) { const p = ymd.split('-'); return (+p[1]) + '/' + (+p[2]); }
@@ -308,6 +328,7 @@ function render(w) {
 
   renderMine(w);
   $('board').innerHTML = tableHtml(w, $('name').value);
+  $('nextBox').innerHTML = nextHtml(w);
   $('stamp').textContent = '불러온 시각 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -386,6 +407,16 @@ function tableHtml(w, me) {
   return h + '</tbody></table>';
 }
 
+// 전체 표 아래: 누가 도전하고 누가 쉬는지 (표 이미지에는 안 들어간다)
+function nextHtml(w) {
+  if (!w.next) return '';
+  const who = c => w.members.filter(m => (w.next.choices[m.name] || '') === c).map(m => esc(m.name));
+  const row = (cls, title, names) => '<div class="row ' + cls + '"><b>' + title + ' ' + names.length + '명</b><br>' + (names.join(', ') || '-') + '</div>';
+  const go = who('go'), rest = who('rest'), none = who('');
+  return '<h3>🙋 ' + esc(w.next.label) + ' 참여 응답 (' + (go.length + rest.length) + '/' + w.members.length + '명)</h3>' +
+         row('go', '💪 도전', go) + row('rest', '🌴 쉼', rest) + row('', '❔ 아직 응답 안 함', none);
+}
+
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 function load(weekStart, keep) {
@@ -440,9 +471,32 @@ function showCheer(w, name, date) {
   if (m.goal > 0 && cnt >= m.goal) { line2 = cnt === m.goal ? '이번 주 결단 달성 🎉' : '결단 넘어 보너스 운동 🔥'; kind = 'done'; }
   else if (m.goal > 0) { line2 = '이번 주 ' + (m.goal - cnt) + '번 남았어요'; kind = 'left'; }
   showMsg('', '');
-  $('cheerBody').innerHTML = '<div class="cheer">' + esc(name) + '님 ' + md(date) + ' 오운완!' + (line2 ? '<br>' + line2 : '') + '</div>' + verseHtml(kind);
+  // 마지막 주에 아직 응답 안 한 사람에게만 다음 달을 묻는다
+  const ask = w.next && !w.next.choices[name];
+  $('cheerBody').innerHTML = '<div class="cheer">' + esc(name) + '님 ' + md(date) + ' 오운완!' + (line2 ? '<br>' + line2 : '') + '</div>' + verseHtml(kind) +
+    (ask ? '<div class="ask" id="ask">' + esc(w.next.label) + '에도 도전하시나요?<div class="btns"><button data-next="go">💪 도전할게요</button><button data-next="rest">🌴 쉴게요</button></div></div>' : '');
+  $('cheerOk').textContent = ask ? '나중에 답할게요' : '확인';
+  $('cheerOk').classList.toggle('later', !!ask);
   $('cheerPop').classList.add('show');
 }
+// 다음 달 응답: 화면 먼저 바꾸고 뒤에서 저장, 실패하면 되돌려 다시 묻는다.
+$('cheerBody').onclick = ev => {
+  const b = ev.target.closest('button[data-next]');
+  if (!b || !state.next) return;
+  const name = $('name').value, n = state.next, choice = b.dataset.next, box = $('ask'), before = box.innerHTML;
+  n.choices[name] = choice;
+  render(state);
+  box.textContent = n.label + (choice === 'go' ? ' 도전으로 받았어요 💪' : '은 쉬는 걸로 받았어요 🌴');
+  $('cheerOk').textContent = '확인';
+  $('cheerOk').classList.remove('later');
+  rpc('hero_set_next', { p_name: name, p_round: n.round, p_choice: choice }).catch(e => {
+    delete n.choices[name];
+    render(state);
+    box.innerHTML = before + '<div class="msg err">저장이 안 됐어요. 다시 눌러 주세요</div>';
+    $('cheerOk').textContent = '나중에 답할게요';
+    $('cheerOk').classList.add('later');
+  });
+};
 
 $('go').onclick = () => {
   const name = $('name').value, date = $('date').value;
