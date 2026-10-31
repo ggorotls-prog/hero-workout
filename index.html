@@ -324,8 +324,15 @@ function render(w) {
   // 이번 주 기록은 폰에 기억해 두고, 다음에 열 때 먼저 보여 준다.
   if (w.days.indexOf(w.today) >= 0) try { localStorage.setItem('heroWeek', JSON.stringify(w)); } catch (e) {}
   const sel = $('name');
-  if (sel.options.length === 1) {
+  const first = sel.options.length === 1;
+  // 폰에 기억해 둔 명단이 옛것이면 최신 명단으로 다시 채운다
+  if ([...sel.options].slice(1).map(o => o.value).join() !== w.members.map(m => m.name).join()) {
+    const cur = sel.value;
+    while (sel.options.length > 1) sel.remove(1);
     w.members.forEach(m => sel.add(new Option(m.name, m.name)));
+    sel.value = cur;
+  }
+  if (first) {
     try { const saved = localStorage.getItem('heroName'); if (saved) sel.value = saved; } catch (e) {}
     $('date').value = w.today;
   }
@@ -610,11 +617,8 @@ function loadAdmin() {
 }
 // 저장한 뒤 관리 칸과 이름 목록·표를 새로 그린다
 function setMember(name, goal, active) {
-  return rpc('hero_admin_set_member', { p_key: ADMIN_KEY, p_name: name, p_goal: goal, p_active: active }).then(() => {
-    const sel = $('name'), cur = sel.value;
-    while (sel.options.length > 1) sel.remove(1);
-    return api('getWeek', state.weekStart).then(w => { render(w); sel.value = cur; render(w); });
-  }).then(loadAdmin).catch(e => showMsg('err', '저장이 안 됐어요: ' + (e.message || e)));
+  return rpc('hero_admin_set_member', { p_key: ADMIN_KEY, p_name: name, p_goal: goal, p_active: active })
+    .then(() => api('getWeek', state.weekStart)).then(render).then(loadAdmin).catch(e => showMsg('err', '저장이 안 됐어요: ' + (e.message || e)));
 }
 $('manage').onclick = ev => {
   const b = ev.target.closest('button');
