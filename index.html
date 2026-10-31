@@ -67,7 +67,7 @@
   .day.today .c { box-shadow: 0 0 0 3px var(--red); }
   .day.future .c { background: #fafafa; color: #bbb; border: 1px dashed #ddd; }
 
-  /* 전체 표는 「전체 표 보기」를 누르면 누구나 */
+  /* 전체 표·참가자 관리는 관리자 주소에서만 */
   /* 결단 바꾸기 + 기수 주차별 결과 */
   .goalrow { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 16px; font-size: 15px; }
   .goalrow .chg { background: #eee; color: var(--ink); padding: 6px 12px; font-size: 14px; }
@@ -613,7 +613,7 @@ function setMember(name, goal, active) {
   return rpc('hero_admin_set_member', { p_key: ADMIN_KEY, p_name: name, p_goal: goal, p_active: active }).then(() => {
     const sel = $('name'), cur = sel.value;
     while (sel.options.length > 1) sel.remove(1);
-    return api('getWeek', state.weekStart).then(w => { render(w); sel.value = cur; if (sel.value !== cur) sel.value = ''; render(w); });
+    return api('getWeek', state.weekStart).then(w => { render(w); sel.value = cur; render(w); });
   }).then(loadAdmin).catch(e => showMsg('err', '저장이 안 됐어요: ' + (e.message || e)));
 }
 $('manage').onclick = ev => {
