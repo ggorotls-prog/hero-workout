@@ -152,7 +152,6 @@
   #cheerPop .cheer { font-size: 20px; color: #0f4d2c; }
   #cheerPop .verse { font-size: 16px; margin-top: 14px; }
   #cheerPop .ok { margin-top: 16px; width: 100%; background: var(--red); color: #fff; padding: 12px; font-size: 16px; }
-  #cheerPop .ok.later { background: #eee; color: var(--sub); }
   /* 마지막 주: 다음 달 도전/쉼 묻기 */
   #cheerPop .ask { margin-top: 16px; border-top: 1px dashed #ddd; padding-top: 14px; font-size: 17px; font-weight: 700; line-height: 1.5; }
   #cheerPop .ask .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
@@ -475,8 +474,7 @@ function showCheer(w, name, date) {
   const ask = w.next && !w.next.choices[name];
   $('cheerBody').innerHTML = '<div class="cheer">' + esc(name) + '님 ' + md(date) + ' 오운완!' + (line2 ? '<br>' + line2 : '') + '</div>' + verseHtml(kind) +
     (ask ? '<div class="ask" id="ask">' + esc(w.next.label) + '에도 도전하시나요?<div class="btns"><button data-next="go">💪 도전할게요</button><button data-next="rest">🌴 쉴게요</button></div></div>' : '');
-  $('cheerOk').textContent = ask ? '나중에 답할게요' : '확인';
-  $('cheerOk').classList.toggle('later', !!ask);
+  $('cheerOk').hidden = !!ask; // 물을 때는 답해야 닫힌다
   $('cheerPop').classList.add('show');
 }
 // 다음 달 응답: 화면 먼저 바꾸고 뒤에서 저장, 실패하면 되돌려 다시 묻는다.
@@ -486,15 +484,13 @@ $('cheerBody').onclick = ev => {
   const name = $('name').value, n = state.next, choice = b.dataset.next, box = $('ask'), before = box.innerHTML;
   n.choices[name] = choice;
   render(state);
-  box.textContent = n.label + (choice === 'go' ? ' 도전으로 받았어요 💪' : '은 쉬는 걸로 받았어요 🌴');
-  $('cheerOk').textContent = '확인';
-  $('cheerOk').classList.remove('later');
+  box.textContent = n.label + (choice === 'go' ? '도 화이팅입니다 💪' : '은 쉬는 걸로 받았어요 🌴');
+  $('cheerOk').hidden = false;
   rpc('hero_set_next', { p_name: name, p_round: n.round, p_choice: choice }).catch(e => {
     delete n.choices[name];
     render(state);
     box.innerHTML = before + '<div class="msg err">저장이 안 됐어요. 다시 눌러 주세요</div>';
-    $('cheerOk').textContent = '나중에 답할게요';
-    $('cheerOk').classList.add('later');
+    $('cheerOk').hidden = true;
   });
 };
 
@@ -586,7 +582,7 @@ $('share').onclick = () => {
 $('close').onclick = () => $('modal').classList.remove('show');
 // 축하 팝업은 확인 또는 바깥을 누르면 닫힘
 $('cheerOk').onclick = () => $('cheerPop').classList.remove('show');
-$('cheerPop').onclick = ev => { if (ev.target === $('cheerPop')) $('cheerPop').classList.remove('show'); };
+$('cheerPop').onclick = ev => { if (ev.target === $('cheerPop') && !$('cheerOk').hidden) $('cheerPop').classList.remove('show'); };
 
 $('all').onclick = () => {
   const on = document.body.classList.toggle('showAll');
